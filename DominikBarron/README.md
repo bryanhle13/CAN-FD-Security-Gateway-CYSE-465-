@@ -1,31 +1,66 @@
-# CAN-FD Flood / DoS Attack and Gateway Defense (CYSE 465)
+# CAN-FD Flooding Attack & Defensive Gateway Demo
+This project demonstrates how a high-priority flooding attack (DoS) on a CAN-style bus can suppress legitimate traffic, and how a defensive gateway can partially mitigate the attack using per-ID rate-limiting and semantic validation.
 
-This proof-of-concept demonstrates a **high-priority flooding (DoS) attack** on a
-CAN-style bus and a simple **gateway-based rate-limiting defense**.
+The demo includes:
+- **can_fd_attack_flood_dos.py** – simulates an attacker flooding the CAN bus.
+- **can_fd_defense_fair_gateway.py** – an improved gateway that distinguishes trusted vs untrusted IDs and rate-limits malicious traffic.
 
-The scenario is:
-
-- A legitimate **EngineECU** sends engine telemetry on CAN ID `0x200`
-  (RPM, coolant temperature, fuel level).
-- An **AttackerNode** floods the bus with high-priority frames on CAN ID `0x001`
-  (lower numeric ID -> higher CAN priority).
-- In the insecure case, the attacker dominates the bus and degrades availability
-  of legitimate traffic.
-- In the defended case, a **SecurityGateway** enforces per-ID rate limits and
-  blocks the flooding traffic while still forwarding legitimate telemetry.
+Both scripts use the `python-can` virtual interface to simulate traffic on a shared bus called `"demo"`.
 
 ---
 
-## Files
+## Overview
 
-- `can_fd_attack_flood_dos.py`  
-  Insecure scenario showing the high-priority flood / DoS attack on the CAN bus.
+Modern vehicles rely on CAN buses for intra-vehicle communication. CAN arbitration gives priority to lower numeric IDs. Attackers can exploit this by sending **high-priority (low ID)** frames continuously, starving legitimate ECUs of bus time and causing a **Denial-of-Service attack**.
 
-- `can_fd_defense_fair_gateway.py`  
-  Defense scenario with a SecurityGateway that rate-limits traffic per CAN ID and
-  mitigates the flooding attack.
+This project demonstrates:
 
-- `requirements.txt`  
-  Contains the Python dependency for the demo:
-  ```text
-  python-can>=4.3
+### 1. **Attack Scenario**
+- A legitimate ECU sends engine telemetry on **ID 0x200**.
+- An attacker floods the bus with high-priority frames on **ID 0x001**.
+- The insecure receiver shows how attack frames dominate the bus.
+
+### 2. **Defense Scenario**
+- A simulated gateway monitors incoming CAN frames.
+- It enforces **per-ID rate limits** and **basic semantic checks**.
+- Legitimate traffic (ID 0x200) is treated differently from untrusted or unknown IDs.
+- Flooding traffic is blocked once it exceeds its allowed rate.
+
+---
+
+## 📁 File Descriptions
+
+### **`can_fd_attack_flood_dos.py`**
+Demonstrates a pure attack environment without defensive controls.
+
+Key behaviors:
+- Legitimate sender transmits engine RPM/temp/fuel at a fixed rate.
+- Attacker floods ID `0x001` at ~50 messages/sec.
+- Receiver shows that legitimate messages are starved due to CAN arbitration unfairness.
+
+### **`can_fd_defense_fair_gateway.py`**
+Implements a more realistic gateway defense:
+
+**Enhancements over the naive "fast = bad" heuristic include:**
+- **Per-ID policies** (`PER_ID_POLICY`):
+  - Trusted IDs can transmit at higher rates.
+  - Untrusted IDs have stricter limits.
+- **Semantic validation**:
+  - RPM, coolant temp, and fuel levels must fall within plausible ranges.
+- **Clear logging** for forwarded vs blocked traffic.
+- **Default policies** for unknown IDs.
+
+This helps address weaknesses such as:
+- False positives on high-rate legitimate traffic.
+- Attacker exploiting rate-limit logic to deny specific ECUs.
+- Lack of contextual interpretation of message content.
+
+---
+
+## 🚀 Running the Demo
+
+### Prerequisites
+Install python-can:
+
+```bash
+pip install python-can
